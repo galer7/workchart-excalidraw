@@ -1,40 +1,36 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Excalidraw,
   exportToBlob,
   exportToSvg,
   serializeAsJSON,
-  convertToExcalidrawElements,
 } from "@excalidraw/excalidraw";
 import {
   ExcalidrawImperativeAPI,
   ExcalidrawElement,
+  AppState,
 } from "@excalidraw/excalidraw/types/types";
+import { newElementWith } from "@excalidraw/excalidraw";
 import { nanoid } from "nanoid";
 import { Button } from "@/components/ui/button";
-import ExampleSidebar from "./sidebar/ExampleSidebar";
 
 const WorkchartExcalidraw: React.FC = () => {
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
-  const [viewModeEnabled, setViewModeEnabled] = useState(false);
-  const [zenModeEnabled, setZenModeEnabled] = useState(false);
-  const [gridModeEnabled, setGridModeEnabled] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mermaidCode, setMermaidCode] = useState<string>("");
-  const appRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Load saved diagram from localStorage on component mount
-    const savedDiagram = localStorage.getItem("workchart-diagram");
-    if (savedDiagram && excalidrawAPI) {
-      const { elements, appState } = JSON.parse(savedDiagram);
-      excalidrawAPI.updateScene({ elements, appState });
+    if (excalidrawAPI) {
+      const savedDiagram = localStorage.getItem("workchart-diagram");
+      if (savedDiagram) {
+        const { elements, appState } = JSON.parse(savedDiagram);
+        excalidrawAPI.updateScene({ elements, appState });
+      }
     }
   }, [excalidrawAPI]);
 
   const onChange = useCallback(
-    (elements: readonly ExcalidrawElement[], appState: any) => {
+    (elements: readonly ExcalidrawElement[], appState: AppState) => {
       if (excalidrawAPI) {
         const { elements: serializedElements, appState: serializedAppState } =
           serializeAsJSON(
@@ -73,7 +69,6 @@ const WorkchartExcalidraw: React.FC = () => {
           break;
       }
     });
-    // Add connections
     elements.forEach((element) => {
       if (element.type === "arrow") {
         const sourceId = element.startBinding?.elementId;
@@ -89,7 +84,6 @@ const WorkchartExcalidraw: React.FC = () => {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(mermaidCode);
-      alert("Mermaid code copied to clipboard!");
     } catch (err) {
       console.error("Failed to copy text: ", err);
     }
@@ -131,91 +125,89 @@ const WorkchartExcalidraw: React.FC = () => {
     if (excalidrawAPI) {
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
-      const element = {
+
+      const newElement = newElementWith({
         type,
         x: centerX,
         y: centerY,
         width: 100,
         height: 100,
+        backgroundColor: "transparent",
+        strokeColor: "#000000",
+        fillStyle: "hachure",
+        strokeWidth: 1,
+        roughness: 1,
+        opacity: 100,
         id: nanoid(),
-        ...(type === "rectangle"
-          ? { text: "Action" }
-          : type === "diamond"
-          ? { text: "Condition" }
-          : { text: "State" }),
-      };
+        strokeStyle: "solid",
+        text:
+          type === "rectangle"
+            ? "Action"
+            : type === "diamond"
+            ? "Condition"
+            : "State",
+      });
+
       excalidrawAPI.updateScene({
-        elements: [
-          ...excalidrawAPI.getSceneElements(),
-          convertToExcalidrawElements([element])[0],
-        ],
+        elements: [...excalidrawAPI.getSceneElements(), newElement],
       });
     }
   };
 
   return (
-    <div className="App" ref={appRef}>
-      <h1>Workchart: Workflow + Flowchart</h1>
-      <ExampleSidebar>
-        <div className="button-wrapper">
-          <Button onClick={() => addNode("rectangle")}>Add Action</Button>
-          <Button onClick={() => addNode("diamond")}>Add Condition</Button>
-          <Button onClick={() => addNode("ellipse")}>Add State</Button>
-          <Button onClick={exportToPNG}>Export to PNG</Button>
-          <Button onClick={exportToSVG}>Export to SVG</Button>
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          padding: "10px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: "#f0f0f0",
+        }}
+      >
+        <h1 style={{ margin: 0 }}>Workchart: Workflow + Flowchart</h1>
+        <div>
+          <Button
+            onClick={() => addNode("rectangle")}
+            style={{ marginRight: "5px" }}
+          >
+            Add Action
+          </Button>
+          <Button
+            onClick={() => addNode("diamond")}
+            style={{ marginRight: "5px" }}
+          >
+            Add Condition
+          </Button>
+          <Button
+            onClick={() => addNode("ellipse")}
+            style={{ marginRight: "5px" }}
+          >
+            Add State
+          </Button>
+          <Button onClick={exportToPNG} style={{ marginRight: "5px" }}>
+            Export to PNG
+          </Button>
+          <Button onClick={exportToSVG} style={{ marginRight: "5px" }}>
+            Export to SVG
+          </Button>
           <Button onClick={copyToClipboard}>Copy Mermaid Code</Button>
-          <label>
-            <input
-              type="checkbox"
-              checked={viewModeEnabled}
-              onChange={() => setViewModeEnabled(!viewModeEnabled)}
-            />
-            View mode
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={zenModeEnabled}
-              onChange={() => setZenModeEnabled(!zenModeEnabled)}
-            />
-            Zen mode
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={gridModeEnabled}
-              onChange={() => setGridModeEnabled(!gridModeEnabled)}
-            />
-            Grid mode
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={theme === "dark"}
-              onChange={() => setTheme(theme === "light" ? "dark" : "light")}
-            />
-            Dark Theme
-          </label>
         </div>
-        <div
-          className="excalidraw-wrapper"
-          style={{ height: "500px", width: "800px" }}
-        >
-          <Excalidraw
-            ref={(api: ExcalidrawImperativeAPI) => setExcalidrawAPI(api)}
-            onChange={onChange}
-            viewModeEnabled={viewModeEnabled}
-            zenModeEnabled={zenModeEnabled}
-            gridModeEnabled={gridModeEnabled}
-            theme={theme}
-            name="Workchart"
-          />
-        </div>
-        <div className="mermaid-code">
-          <h3>Mermaid Code:</h3>
-          <pre>{mermaidCode}</pre>
-        </div>
-      </ExampleSidebar>
+      </div>
+      <div style={{ flex: 1, position: "relative" }}>
+        <Excalidraw
+          onChange={onChange}
+          onPointerUpdate={() => {}}
+          excalidrawAPI={(api) => setExcalidrawAPI(api)}
+        />
+      </div>
     </div>
   );
 };

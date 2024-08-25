@@ -1,31 +1,99 @@
 import { type ClassValue, clsx } from "clsx";
-import { Node } from "reactflow";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+import { ResolvablePromise } from "@excalidraw/excalidraw/types/utils";
+import { unstable_batchedUpdates } from "react-dom";
 
-export const getNextIndex = (nodes: Node[], type) => {
-  const typeNodes = nodes.filter(
-    (node) => node.data.name?.startsWith(type) || false
-  );
+export const throttleRAF = <T extends any[]>(
+  fn: (...args: T) => void,
+  opts?: { trailing?: boolean }
+) => {
+  let timerId: number | null = null;
+  let lastArgs: T | null = null;
+  let lastArgsTrailing: T | null = null;
 
-  if (typeNodes.length === 0) {
-    return 1;
-  }
+  const scheduleFunc = (args: T) => {
+    timerId = window.requestAnimationFrame(() => {
+      timerId = null;
+      fn(...args);
+      lastArgs = null;
+      if (lastArgsTrailing) {
+        lastArgs = lastArgsTrailing;
+        lastArgsTrailing = null;
+        scheduleFunc(lastArgs);
+      }
+    });
+  };
 
-  const existingIndices = typeNodes
-    .map((node) => {
-      const match = node.data.name.match(new RegExp(`${type}_(\\d+)`));
-      return match ? parseInt(match[1], 10) : 0;
-    })
-    .filter((index) => !isNaN(index));
+  const ret = (...args: T) => {
+    if (process.env.NODE_ENV === "test") {
+      fn(...args);
+      return;
+    }
+    lastArgs = args;
+    if (timerId === null) {
+      scheduleFunc(lastArgs);
+    } else if (opts?.trailing) {
+      lastArgsTrailing = args;
+    }
+  };
+  ret.flush = () => {
+    if (timerId !== null) {
+      cancelAnimationFrame(timerId);
+      timerId = null;
+    }
+    if (lastArgs) {
+      fn(...(lastArgsTrailing || lastArgs));
+      lastArgs = lastArgsTrailing = null;
+    }
+  };
+  ret.cancel = () => {
+    lastArgs = lastArgsTrailing = null;
+    if (timerId !== null) {
+      cancelAnimationFrame(timerId);
+      timerId = null;
+    }
+  };
+  return ret;
+};
 
-  if (existingIndices.length === 0) {
-    return 1;
-  }
+export const withBatchedUpdates = <
+  TFunction extends ((event: any) => void) | (() => void)
+>(
+  func: Parameters<TFunction>["length"] extends 0 | 1 ? TFunction : never
+) =>
+  ((event) => {
+    unstable_batchedUpdates(func as TFunction, event);
+  }) as TFunction;
 
-  const maxIndex = Math.max(...existingIndices);
-  return maxIndex + 1;
+export const withBatchedUpdatesThrottled = <
+  TFunction extends ((event: any) => void) | (() => void)
+>(
+  func: Parameters<TFunction>["length"] extends 0 | 1 ? TFunction : never
+) => {
+  // @ts-ignore
+  return throttleRAF<Parameters<TFunction>>(((event) => {
+    unstable_batchedUpdates(func, event);
+  }) as TFunction);
+};
+
+export const distance2d = (x1: number, y1: number, x2: number, y2: number) => {
+  const xd = x2 - x1;
+  const yd = y2 - y1;
+  return Math.hypot(xd, yd);
+};
+
+export const resolvablePromise = () => {
+  let resolve!: any;
+  let reject!: any;
+  const promise = new Promise((_resolve, _reject) => {
+    resolve = _resolve;
+    reject = _reject;
+  });
+  (promise as any).resolve = resolve;
+  (promise as any).reject = reject;
+  return promise as ResolvablePromise<any>;
 };
