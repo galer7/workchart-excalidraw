@@ -1,4 +1,3 @@
-import React from "react";
 import WorkchartExcalidraw from "./components/excalidraw-workchart";
 
 function App() {

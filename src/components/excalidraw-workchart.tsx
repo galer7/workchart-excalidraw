@@ -4,13 +4,13 @@ import {
   exportToBlob,
   exportToSvg,
   serializeAsJSON,
+  convertToExcalidrawElements,
 } from "@excalidraw/excalidraw";
 import {
   ExcalidrawImperativeAPI,
   ExcalidrawElement,
   AppState,
 } from "@excalidraw/excalidraw/types/types";
-import { newElementWith } from "@excalidraw/excalidraw";
 import { nanoid } from "nanoid";
 import { Button } from "@/components/ui/button";
 
@@ -123,13 +123,15 @@ const WorkchartExcalidraw: React.FC = () => {
 
   const addNode = (type: "rectangle" | "diamond" | "ellipse") => {
     if (excalidrawAPI) {
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
+      const { width, height, offsetLeft, offsetTop } =
+        excalidrawAPI.getAppState();
+      const centerX = width / 2 + offsetLeft;
+      const centerY = height / 2 + offsetTop;
 
-      const newElement = newElementWith({
+      const newElementSkeleton = {
         type,
-        x: centerX,
-        y: centerY,
+        x: centerX - 50,
+        y: centerY - 50,
         width: 100,
         height: 100,
         backgroundColor: "transparent",
@@ -138,19 +140,25 @@ const WorkchartExcalidraw: React.FC = () => {
         strokeWidth: 1,
         roughness: 1,
         opacity: 100,
-        id: nanoid(),
         strokeStyle: "solid",
-        text:
-          type === "rectangle"
-            ? "Action"
-            : type === "diamond"
-            ? "Condition"
-            : "State",
+        label: {
+          text:
+            type === "rectangle"
+              ? "Action"
+              : type === "diamond"
+              ? "Condition"
+              : "State",
+        },
+      };
+
+      const newElement = convertToExcalidrawElements([newElementSkeleton])[0];
+      const updatedElements = [...excalidrawAPI.getSceneElements(), newElement];
+      excalidrawAPI.updateScene({
+        elements: updatedElements,
       });
 
-      excalidrawAPI.updateScene({
-        elements: [...excalidrawAPI.getSceneElements(), newElement],
-      });
+      // Center the view on the new element
+      excalidrawAPI.scrollToContent([newElement]);
     }
   };
 
