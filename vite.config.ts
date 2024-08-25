@@ -9,6 +9,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    "process.env.IS_PREACT": JSON.stringify("true"),
+  },
   // if in github ci, set base to /workchart/
   base: process.env.GITHUB_ACTIONS ? "/workchart/" : "/",
 });

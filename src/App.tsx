@@ -1,5 +1,12 @@
-import { FlowchartBuilderWithProvider } from "./components/flowchart-builder";
+import React from "react";
+import WorkchartExcalidraw from "./components/excalidraw-workchart";
 
-export default function App() {
-  return <FlowchartBuilderWithProvider />;
+function App() {
+  return (
+    <div className="App">
+      <WorkchartExcalidraw />
+    </div>
+  );
 }
+
+export default App;
