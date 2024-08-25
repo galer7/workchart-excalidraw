@@ -5,10 +5,12 @@ import {
   exportToSvg,
   serializeAsJSON,
   convertToExcalidrawElements,
+  restoreElements,
 } from "@excalidraw/excalidraw";
 import {
   ExcalidrawImperativeAPI,
   ExcalidrawElement,
+  ExcalidrawTextElement,
   AppState,
   BinaryFiles,
 } from "@excalidraw/excalidraw/types/types";
@@ -125,6 +127,12 @@ const WorkchartExcalidraw: React.FC = () => {
     }
   };
 
+  const typeToMeaning = {
+    rectangle: "Action",
+    diamond: "Condition",
+    ellipse: "State",
+  };
+
   const addNode = (type: "rectangle" | "diamond" | "ellipse") => {
     if (excalidrawAPI) {
       const { width, height, offsetLeft, offsetTop } =
@@ -132,36 +140,31 @@ const WorkchartExcalidraw: React.FC = () => {
       const centerX = width / 2 + offsetLeft;
       const centerY = height / 2 + offsetTop;
 
-      const newElementSkeleton = {
-        type,
-        x: centerX - 50,
-        y: centerY - 50,
-        width: 100,
-        height: 100,
-        backgroundColor: "transparent",
-        strokeColor: "#000000",
-        fillStyle: "hachure",
-        strokeWidth: 1,
-        roughness: 1,
-        opacity: 100,
-        strokeStyle: "solid",
-        label: {
-          text:
-            type === "rectangle"
-              ? "Action"
-              : type === "diamond"
-              ? "Condition"
-              : "State",
-        },
-      };
+      console.log("centerX", centerX);
 
-      const newElement = convertToExcalidrawElements([newElementSkeleton])[0];
+      const sameShapeElementCount = excalidrawAPI
+        .getSceneElements()
+        .filter((element) => element.type === type).length;
+
+      const shapeElements = convertToExcalidrawElements([
+        {
+          type,
+          x: centerX - 50,
+          y: centerY - 50,
+          width: 300,
+          height: 100,
+          label: {
+            text: `${typeToMeaning[type]}_${sameShapeElementCount + 1}`,
+          },
+        },
+      ]);
+
       excalidrawAPI.updateScene({
-        elements: [...excalidrawAPI.getSceneElements(), newElement],
+        elements: [...excalidrawAPI.getSceneElements(), ...shapeElements],
       });
 
-      // Center the view on the new element
-      excalidrawAPI.scrollToContent([newElement]);
+      // Center the view on the new elements
+      excalidrawAPI.scrollToContent([...shapeElements]);
     }
   };
 
