@@ -10,44 +10,48 @@ import {
   ExcalidrawImperativeAPI,
   ExcalidrawElement,
   AppState,
+  BinaryFiles,
 } from "@excalidraw/excalidraw/types/types";
-import { nanoid } from "nanoid";
 import { Button } from "@/components/ui/button";
+
+const STORAGE_KEY = "workchart-diagram";
 
 const WorkchartExcalidraw: React.FC = () => {
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
   const [mermaidCode, setMermaidCode] = useState<string>("");
+  const [initialData, setInitialData] = useState<{
+    elements: readonly ExcalidrawElement[];
+    appState: Partial<AppState>;
+    files: BinaryFiles;
+  } | null>(null);
 
   useEffect(() => {
-    if (excalidrawAPI) {
-      const savedDiagram = localStorage.getItem("workchart-diagram");
-      if (savedDiagram) {
-        const { elements, appState } = JSON.parse(savedDiagram);
-        excalidrawAPI.updateScene({ elements, appState });
+    const savedDiagram = localStorage.getItem(STORAGE_KEY);
+    if (savedDiagram) {
+      try {
+        const { elements, appState, files } = JSON.parse(savedDiagram);
+        setInitialData({ elements, appState, files });
+      } catch (error) {
+        console.error("Failed to load saved diagram:", error);
       }
     }
-  }, [excalidrawAPI]);
+  }, []);
 
   const onChange = useCallback(
-    (elements: readonly ExcalidrawElement[], appState: AppState) => {
-      if (excalidrawAPI) {
-        const { elements: serializedElements, appState: serializedAppState } =
-          serializeAsJSON(
-            elements,
-            appState,
-            excalidrawAPI.getFiles(),
-            "local"
-          );
-        localStorage.setItem(
-          "workchart-diagram",
-          JSON.stringify({
-            elements: serializedElements,
-            appState: serializedAppState,
-          })
-        );
-        generateMermaidCode(elements);
-      }
+    (
+      excalidrawElements: readonly ExcalidrawElement[],
+      appState: AppState,
+      files: BinaryFiles
+    ) => {
+      const serializedData = serializeAsJSON(
+        excalidrawElements,
+        appState,
+        files,
+        "local"
+      );
+      localStorage.setItem(STORAGE_KEY, serializedData);
+      generateMermaidCode(excalidrawElements);
     },
     [excalidrawAPI]
   );
@@ -152,9 +156,8 @@ const WorkchartExcalidraw: React.FC = () => {
       };
 
       const newElement = convertToExcalidrawElements([newElementSkeleton])[0];
-      const updatedElements = [...excalidrawAPI.getSceneElements(), newElement];
       excalidrawAPI.updateScene({
-        elements: updatedElements,
+        elements: [...excalidrawAPI.getSceneElements(), newElement],
       });
 
       // Center the view on the new element
@@ -211,6 +214,7 @@ const WorkchartExcalidraw: React.FC = () => {
       </div>
       <div style={{ flex: 1, position: "relative" }}>
         <Excalidraw
+          initialData={initialData || undefined}
           onChange={onChange}
           onPointerUpdate={() => {}}
           excalidrawAPI={(api) => setExcalidrawAPI(api)}
